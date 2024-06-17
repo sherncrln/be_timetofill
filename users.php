@@ -17,7 +17,7 @@ switch($method) {
         $sql = "SELECT * FROM user";
         $path = explode('/', $_SERVER['REQUEST_URI']);
         if(isset($path[3]) && is_numeric($path[3])) {
-            $sql .= " WHERE id = :id";
+            $sql .= " WHERE user_id = :id";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':id', $path[3]);
             $stmt->execute();
@@ -29,5 +29,6 @@ switch($method) {
         }
         echo json_encode($users);
         break;
-
+    case "PUT":
+        break;
 }
