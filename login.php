@@ -13,12 +13,12 @@
         $eData = file_get_contents("php://input");
         $dData = json_decode($eData, true);
 
-        $user = $dData['user'] ?? '';
+        $email = $dData['email'] ?? '';
         $pass = $dData['pass'] ?? '';
         $result = "";
         
-        if($user !== "" and $pass !== ""){
-            $sql = "SELECT * FROM user WHERE username='$user';";
+        if($email !== "" and $pass !== ""){
+            $sql = "SELECT * FROM user WHERE email='$email' and status_user='Active';";
             $res = mysqli_query($conn, $sql);
             
             if(mysqli_num_rows($res) != 0){
@@ -32,14 +32,14 @@
                 }
             }
             else{
-                $result = "Invalid Username!";
+                $result = "Invalid Email!";
             }
         }
         else{
-            $result = "";
+            $result = "User is Not Active. Please contact administrator!";
         }
 
-        $response[] = array("result" => $result, "user" => $row);
+        $response[] = array("result" => $result, "email" => $row);
         echo json_encode($response);
     }
 ?>

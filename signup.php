@@ -1,6 +1,6 @@
 <?php
     header("Access-Control-Allow-Origin: *");
-    header("Access-Control-Allow-Methods: GET, POST");
+    header("Access-Control-Allow-Methods: GET, POST, PUT");
     header("Access-Control-Allow-Headers: Content-Type");
 
 
@@ -10,38 +10,34 @@
         exit;
     }
     else{
-        $eData = file_get_contents("php://input");
-        $dData = json_decode($eData, true);
-
-        $user = $dData['user'] ?? '';
-        $pass = $dData['pass'] ?? '';
-        $email = $dData['email'] ?? '';
-        $result = "";
+        $user = json_decode(file_get_contents('php://input'), true);
         
-        if($user !== "" and $pass !== ""){
-            $sql = "SELECT * FROM user WHERE username='$user';";
-            // $sql = "SELECT * FROM user WHERE username='$user';";
-            $res = mysqli_query($conn, $sql);
+        if($user && is_array($user) ){
+            $updated_at = date('Y-m-d');
+            $email = $user['email'];
+            $password = $user['password'];
+            $username = $user['username'];
+
+            $sql_user = "SELECT * FROM user WHERE username='$username';";
+            $res = mysqli_query($conn, $sql_user);
             
             if(mysqli_num_rows($res) != 0){
-                $row = mysqli_fetch_array($res);
+                $sql = "UPDATE `user` SET `email` =?, `password` =?, `updated_at` =? WHERE `username` =? ;";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param('ssss', $email, $password, $updated_at, $username);
+                if($stmt->execute()){
+                    $response = ['status' => 1, 'message' => 'Account has been created.' ];
+                }else{
+                    $response = ['status' => 0, 'message' => 'Failed to create account.'];            
+                }                
+            }else{
+                $response = ['status' => 0, 'message' => 'User not found!'];
+            }
 
-                if($pass != $row['password']){
-                    $result = "Invalid Password!";
-                }
-                else{
-                    $result = "Sign up successed!";
-                }
-            }
-            else{
-                $result = "Invalid Username!";
-            }
         }
         else{
-            $result = "";
+            $response = ['status' => 0, 'message' => 'Error Data Input!'];
         }
-
-        $response[] = array("result" => $result, "user" => $row);
         echo json_encode($response);
     }
 ?>
