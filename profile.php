@@ -31,14 +31,17 @@ switch($method) {
 
     case "PUT":
         $user = json_decode(file_get_contents('php://input'), true);
-        if ($user && is_object($user)) {
-            // Update the user data
-            $sql = "UPDATE user set password =:password, email =:email, updated_at =:updated_at WHERE user_id = :id ;";
+        if ($user && is_array($user)) {
+            //Update the user data
+            $sql = "UPDATE `user` SET `name` = :name, `class` = :class , `category` = :category, `password` = :password, `email` = :email, `updated_at` = :updated_at WHERE `user_id` = :id ;";
             $stmt = $conn->prepare($sql);
             $updated_at = date('Y-m-d');
-            $stmt->bindParam(':id', $user_id, PDO::PARAM_INT);
-            $stmt->bindParam(':email', $user->email);
-            $stmt->bindParam(':password', $user->password);
+            $stmt->bindParam(':id', $user['user_id'], PDO::PARAM_INT);
+            $stmt->bindParam(':name', $user['name']);
+            $stmt->bindParam(':class', $user['class']);
+            $stmt->bindParam(':category', $user['category']);
+            $stmt->bindParam(':email', $user['email']);
+            $stmt->bindParam(':password', $user['password']);
             $stmt->bindParam(':updated_at', $updated_at);
             if($stmt->execute()){
                 $response = ['status' => 1, 'message' => 'Record updated successfully.'];
@@ -47,8 +50,8 @@ switch($method) {
             }
             echo json_encode($response);
         } else {
-            // $response = ["error" => "Invalid request data"];
-            $response = $user->user_id;
+            // $response = "hello this is else ";
+            $response = ["error" => "Invalid request data"];
             echo json_encode($response);
         }
         break;
