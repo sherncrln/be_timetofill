@@ -15,44 +15,50 @@ $method = $_SERVER['REQUEST_METHOD'];
 switch($method) {
     case "GET":
         $sql = "SELECT * FROM class";
-        $path = explode('/', $_SERVER['REQUEST_URI']);
-        if(isset($path[3]) && is_numeric($path[3])) {
+        // $path = explode('/', $_SERVER['REQUEST_URI']);
+         
+        if(isset($_GET['class_id']) && is_numeric($_GET['class_id'])) {
             $sql .= " WHERE class_id = :id";
             $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':id', $path[3]);
+            $stmt->bindParam(':id', $_GET['class_id'], PDO::PARAM_INT);
             $stmt->execute();
-            $users = $stmt->fetch(PDO::FETCH_ASSOC);
+            $class = $stmt->fetch(PDO::FETCH_ASSOC);
         } else {
             $stmt = $conn->prepare($sql);
             $stmt->execute();
-            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $class = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        echo json_encode($users);
+        echo json_encode($class);
         break;
     case "PUT":
-        // $user = json_decode(file_get_contents('php://input'), true);
-        // if ($user && is_array($user)) {
-        //     //Update the user data
-        //     $sql = "UPDATE `user` SET `name` = :name, `class` = :class , `category` = :category, `status_user` = :status_user, `email` = :email, `updated_at` = :updated_at WHERE `user_id` = :id ;";
-        //     $stmt = $conn->prepare($sql);
-        //     $updated_at = date('Y-m-d');
-        //     $stmt->bindParam(':id', $user['user_id'], PDO::PARAM_INT);
-        //     $stmt->bindParam(':name', $user['name']);
-        //     $stmt->bindParam(':class', $user['class']);
-        //     $stmt->bindParam(':category', $user['category']);
-        //     $stmt->bindParam(':email', $user['email']);
-        //     $stmt->bindParam(':status_user', $user['status_user']);
-        //     $stmt->bindParam(':updated_at', $updated_at);
-        //     if($stmt->execute()){
-        //         $response = ['status' => 1, 'message' => 'Record updated successfully.'];
-        //     }else{
-        //         $response = ['status' => 0, 'message' => 'Failed to update record.'];            
-        //     }
-        //     echo json_encode($response);
-        // } else {
-        //     // $response = "hello this is else ";
-        //     $response = ["error" => "Invalid request data"];
-        //     echo json_encode($response);
-        // }
+        $class = json_decode(file_get_contents('php://input'), true);
+        if ($class && is_array($class)) {
+            //Update the class data
+            $sql = "UPDATE `class` SET `class` = :class, `category` = :category, `semester` = :semester, `valid_to` = :valid_to, `valid_from` = :valid_from, `variable_1` = :variable_1, `variable_2` = :variable_2, `variable_3` = :variable_3, `variable_4` = :variable_4, `variable_5` = :variable_5, `variable_6` = :variable_6 WHERE `class_id` = :id ;";
+            $stmt = $conn->prepare($sql);
+            $updated_at = date('Y-m-d');
+            $stmt->bindParam(':id', $class['class_id'], PDO::PARAM_INT);
+            $stmt->bindParam(':class', $class['class']);
+            $stmt->bindParam(':category', $class['category']);
+            $stmt->bindParam(':semester', $class['semester'], PDO::PARAM_INT);
+            $stmt->bindParam(':valid_to', $class['valid_to']);
+            $stmt->bindParam(':valid_from', $class['valid_from']);
+            $stmt->bindParam(':variable_1', $class['variable_1']);
+            $stmt->bindParam(':variable_2', $class['variable_2']);
+            $stmt->bindParam(':variable_3', $class['variable_3']);
+            $stmt->bindParam(':variable_4', $class['variable_4']);
+            $stmt->bindParam(':variable_5', $class['variable_5']);
+            $stmt->bindParam(':variable_6', $class['variable_6']);
+            if($stmt->execute()){
+                $response = ['status' => 1, 'message' => 'Record updated successfully.'];
+            }else{
+                $response = ['status' => 0, 'message' => 'Failed to update record.'];            
+            }
+            echo json_encode($response);
+        } else {
+            // $response = "hello this is else ";
+            $response = ["error" => "Invalid request data"];
+            echo json_encode($response);
+        }
         break;
 }
