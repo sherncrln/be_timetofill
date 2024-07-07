@@ -1,99 +1,125 @@
-    <?php
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-    header("Access-Control-Allow-Origin: *");
-    header("Access-Control-Allow-Headers: *");
-    header("Access-Control-Allow-Methods: *");
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: *");
+header("Access-Control-Allow-Methods: *");
 
+include 'connection.php';
+$objDb = new Connection;
+$conn = $objDb->connect();
 
-    include 'connection.php';
-    $objDb = new Connection;
-    $conn = $objDb->connect();
+$method = $_SERVER['REQUEST_METHOD'];
 
-    $method = $_SERVER['REQUEST_METHOD'];
-
-    switch($method) {
-        case "GET":
+switch($method) {
+    case "GET":
+        if(isset($_GET['form_id']) && is_numeric($_GET['form_id'])) {
+            $sql = "SELECT f.form_id, f.name_form, f.respondent, f.show_username, f.status_form, f.description, fd.question, fd.qtype FROM form f LEFT JOIN form_detail fd ON f.form_id = fd.form_id WHERE f.form_id = :id ;";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':id', $_GET['form_id'], PDO::PARAM_INT);
+            $stmt->execute();
+            $form = $stmt->fetch(PDO::FETCH_ASSOC);
+        } else {
             $sql = "SELECT * FROM form";
-            // $path = explode('/', $_SERVER['REQUEST_URI']);
-            
-            if(isset($_GET['form_id']) && is_numeric($_GET['form_id'])) {
-                $sql .= " WHERE form_id = :id";
-                $stmt = $conn->prepare($sql);
-                $stmt->bindParam(':id', $_GET['form_id'], PDO::PARAM_INT);
-                $stmt->execute();
-                $form = $stmt->fetch(PDO::FETCH_ASSOC);
-            } else {
-                $stmt = $conn->prepare($sql);
-                $stmt->execute();
-                $form = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            }
-            echo json_encode($form);
-            break;
-        case "POST":
-            $form = json_decode(file_get_contents('php://input'), true);
-    
-            if ($form && is_array($form)) {
-                $sql = "INSERT INTO `form` (`name_form`, `status_form`, `respondent`, `show_username`, `description`, `created_at`, `updated_at`) VALUES (:name_form, :status_form, :respondent, :show_username, :description, :created_at, :updated_at)";
-                $stmt = $conn->prepare($sql);
-                $updated_at = date('Y-m-d H:i:s', strtotime('+7 hour'));
-                $created_at = date('Y-m-d H:i:s', strtotime('+7 hour'));
-                $stmt->bindParam(':name_form', $form['name_form']);
-                $stmt->bindParam(':status_form', $form['status_form']);
-                $stmt->bindParam(':respondent', $form['respondent']);
-                $stmt->bindParam(':show_username', $form['show_username']);
-                $stmt->bindParam(':description', $form['description']);
-                $stmt->bindParam(':created_at', $created_at);
-                $stmt->bindParam(':updated_at', $updated_at);
-    
-                if ($stmt->execute()) {
-                    $form_id = $conn->lastInsertId();
-    
-                    if (isset($form['question']) && is_array($form['question'])) {
-                        foreach ($form['question'] as $key => $question) {
-                            
-                            $sub_quest = json_encode($question['sub_quest']);
-                            $sql_question = "INSERT INTO `form_question` (`form_id`, `header`, `sub_quest`) VALUES (:form_id, :header, :sub_quest )";
-                            $stmt_question = $conn->prepare($sql_question);
-                            $stmt_question->bindParam(':form_id', $form_id, PDO::PARAM_INT);
-                            $stmt_question->bindParam(':header', $question['header']);
-                            $stmt_question->bindParam(':sub_quest', $sub_quest);
-    
-                            if ($stmt_question->execute()) {
-                                $question_id = $conn->lastInsertId();
-                                $qtype = $form['qtype'][$key];
-                                $detail = json_encode($qtype['detail']);
-    
-                                $sql_qtype = "INSERT INTO `form_qtype` (`question_id`, `type`, `detail`) VALUES (:question_id, :type, :detail)";
-                                $stmt_qtype = $conn->prepare($sql_qtype);
-                                $stmt_qtype->bindParam(':question_id', $question_id, PDO::PARAM_INT);
-                                $stmt_qtype->bindParam(':type', $qtype['type']);
-                                $stmt_qtype->bindParam(':detail', $detail);
-    
-                                if (!$stmt_qtype->execute()) {
-                                    $response = ['status' => 0, 'message' => 'Gagal menyimpan detail form.'];
-                                    echo json_encode($response);
-                                    exit;
-                                }
-                            } else {
-                                $response = ['status' => 0, 'message' => 'Gagal menyimpan pertanyaan.'];
-                                echo json_encode($response);
-                                exit;
-                            }
-                        }
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            $form = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        echo json_encode($form);
+        break;
+
+    case "POST":
+        $form = json_decode(file_get_contents('php://input'), true);
+
+        if ($form && is_array($form)) {
+            $sql = "INSERT INTO `form` (`name_form`, `status_form`, `respondent`, `show_username`, `description`, `created_at`, `updated_at`) VALUES (:name_form, :status_form, :respondent, :show_username, :description, :created_at, :updated_at)";
+            $stmt = $conn->prepare($sql);
+            $updated_at = date('Y-m-d H:i:s', strtotime('+7 hour'));
+            $created_at = date('Y-m-d H:i:s', strtotime('+7 hour'));
+            $stmt->bindParam(':name_form', $form['name_form']);
+            $stmt->bindParam(':status_form', $form['status_form']);
+            $stmt->bindParam(':respondent', $form['respondent']);
+            $stmt->bindParam(':show_username', $form['show_username']);
+            $stmt->bindParam(':description', $form['description']);
+            $stmt->bindParam(':created_at', $created_at);
+            $stmt->bindParam(':updated_at', $updated_at);
+
+            if ($stmt->execute()) {
+                $form_id = $conn->lastInsertId();
+
+                if (isset($form['question']) && is_array($form['question'])) {
+                    $question = json_encode($form['question']);
+                    $qtype = json_encode($form['qtype']);
+                    $sql_detail = "INSERT INTO `form_detail` (`form_id`, `question`, `qtype`) VALUES (:form_id, :question, :qtype)";
+                    $stmt_detail = $conn->prepare($sql_detail);
+                    $stmt_detail->bindParam(':form_id', $form_id, PDO::PARAM_INT);
+                    $stmt_detail->bindParam(':question', $question);
+                    $stmt_detail->bindParam(':qtype', $qtype);
+
+                    if ($stmt_detail->execute()) {
+                        $response = ['status' => 1, 'message' => 'Record updated successfully.'];
+                    } else {
+                        $response = ['status' => 0, 'message' => 'Failed to update record.'];
                     }
-    
-                    $response = ['status' => 1, 'message' => 'Rekord berhasil disimpan.'];
                     echo json_encode($response);
                 } else {
-                    $response = ['status' => 0, 'message' => 'Gagal menyimpan rekord.'];
+                    $response = ['status' => 0, 'message' => 'Failed to update record.'];
+                    echo json_encode($response);
+                    exit;
+                }
+            } else {
+                $response = ['status' => 0, 'message' => 'Failed to update record.'];
+                echo json_encode($response);
+            }
+        } else {
+            $response = ["error" => "Data permintaan tidak valid"];
+            echo json_encode($response);
+        }
+        break;
+    case "PUT":
+        $form = json_decode(file_get_contents('php://input'), true);
+        if (isset($form['form_id']) && is_numeric($form['form_id'])) {
+            $form_id = $form['form_id'];
+
+            $sql = "UPDATE `form` SET `name_form` = :name_form, `status_form` = :status_form, `respondent` = :respondent, `show_username` = :show_username, `description` = :description, `updated_at` = :updated_at WHERE `form_id` = :form_id";
+            $stmt = $conn->prepare($sql);
+            $updated_at = date('Y-m-d H:i:s', strtotime('+7 hour'));
+            $stmt->bindParam(':name_form', $form['name_form']);
+            $stmt->bindParam(':status_form', $form['status_form']);
+            $stmt->bindParam(':respondent', $form['respondent']);
+            $stmt->bindParam(':show_username', $form['show_username']);
+            $stmt->bindParam(':description', $form['description']);
+            $stmt->bindParam(':updated_at', $updated_at);
+            $stmt->bindParam(':form_id', $form_id, PDO::PARAM_INT);
+
+            if ($stmt->execute()) {
+                if (isset($form['question']) && is_array($form['question'])) {
+                    $question = json_encode($form['question']);
+                    $qtype = json_encode($form['qtype']);
+                    $sql_detail = "UPDATE `form_detail` SET `question` = :question, `qtype` = :qtype WHERE `form_id` = :form_id";
+                    $stmt_detail = $conn->prepare($sql_detail);
+                    $stmt_detail->bindParam(':form_id', $form_id, PDO::PARAM_INT);
+                    $stmt_detail->bindParam(':question', $question);
+                    $stmt_detail->bindParam(':qtype', $qtype);
+
+                    if ($stmt_detail->execute()) {
+                        $response = ['status' => 1, 'message' => 'Record updated successfully.'];
+                    } else {
+                        $response = ['status' => 0, 'message' => 'Failed to update record.'];
+                    }
+                    echo json_encode($response);
+                } else {
+                    $response = ['status' => 1, 'message' => 'Record updated successfully.'];
                     echo json_encode($response);
                 }
             } else {
-                $response = ["error" => "Data permintaan tidak valid"];
+                $response = ['status' => 0, 'message' => 'Failed to update record.'];
                 echo json_encode($response);
             }
-            break;
-        
-            
-    }
+        } else {
+            $response = ["error" => "ID formulir tidak valid"];
+            echo json_encode($response);
+        }
+        break;
+}
+?>
