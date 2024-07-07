@@ -76,6 +76,7 @@ switch($method) {
             echo json_encode($response);
         }
         break;
+        
     case "PUT":
         $form = json_decode(file_get_contents('php://input'), true);
         if (isset($form['form_id']) && is_numeric($form['form_id'])) {
@@ -118,6 +119,35 @@ switch($method) {
             }
         } else {
             $response = ["error" => "ID formulir tidak valid"];
+            echo json_encode($response);
+        }
+        break;
+
+    case "DELETE":
+        if (isset($_GET['form_id']) && is_numeric($_GET['form_id'])) {
+            $form_id = $_GET['form_id'];
+    
+            $sql_detail = "DELETE FROM form_detail WHERE form_id = :form_id";
+            $stmt_detail = $conn->prepare($sql_detail);
+            $stmt_detail->bindParam(':form_id', $form_id, PDO::PARAM_INT);
+            
+            if ($stmt_detail->execute()) {
+                $sql = "DELETE FROM form WHERE form_id = :form_id";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(':form_id', $form_id, PDO::PARAM_INT);
+    
+                if ($stmt->execute()) {
+                    $response = ['status' => 1, 'message' => 'Form deleted successfully.'];
+                } else {
+                    $response = ['status' => 0, 'message' => 'Failed to delete form.'];
+                }
+            } else {
+                $response = ['status' => 0, 'message' => 'Failed to delete form details.'];
+            }
+    
+            echo json_encode($response);
+        } else {
+            $response = ["error" => "Invalid form ID"];
             echo json_encode($response);
         }
         break;
