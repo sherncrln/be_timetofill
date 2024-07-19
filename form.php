@@ -3,7 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: *");
-header("Access-Control-Allow-Methods: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 include 'connection.php';
 $objDb = new Connection;
@@ -14,7 +14,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 switch($method) {
     case "GET":
         if(isset($_GET['form_id']) && is_numeric($_GET['form_id'])) {
-            $sql = "SELECT f.form_id, f.name_form, f.respondent, f.show_username, f.status_form, f.description, fd.question, fd.qtype FROM form f LEFT JOIN form_detail fd ON f.form_id = fd.form_id WHERE f.form_id = :id ;";
+            $sql = "SELECT f.form_id, f.name_form, f.respondent, f.show_username, f.status_form, f.description, fd.question, fd.qtype, fd.section, fd.section_rule FROM form f LEFT JOIN form_detail fd ON f.form_id = fd.form_id WHERE f.form_id = :id ;";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':id', $_GET['form_id'], PDO::PARAM_INT);
             $stmt->execute();
@@ -60,11 +60,13 @@ switch($method) {
                     $form_details = $stmt_detail->fetchAll(PDO::FETCH_ASSOC);
 
                     foreach ($form_details as $detail) {
-                        $sql_insert_detail = "INSERT INTO form_detail (form_id, question, qtype) VALUES (:form_id, :question, :qtype)";
+                        $sql_insert_detail = "INSERT INTO form_detail (form_id, question, qtype, section, section_rule) VALUES (:form_id, :question, :qtype, :section, :section_rule)";
                         $stmt_insert_detail = $conn->prepare($sql_insert_detail);
                         $stmt_insert_detail->bindParam(':form_id', $new_form_id, PDO::PARAM_INT);
                         $stmt_insert_detail->bindParam(':question', $detail['question']);
                         $stmt_insert_detail->bindParam(':qtype', $detail['qtype']);
+                        $stmt_insert_detail->bindParam(':section', $detail['section']);
+                        $stmt_insert_detail->bindParam(':section_rule', $detail['section_rule']);
                         $stmt_insert_detail->execute();
                     }
 
@@ -99,11 +101,15 @@ switch($method) {
                     if (isset($form['question']) && is_array($form['question'])) {
                         $question = json_encode($form['question']);
                         $qtype = json_encode($form['qtype']);
-                        $sql_detail = "INSERT INTO `form_detail` (`form_id`, `question`, `qtype`) VALUES (:form_id, :question, :qtype)";
+                        $section = json_encode($form['section']);
+                        $section_rule = json_encode($form['section_rule']);
+                        $sql_detail = "INSERT INTO `form_detail` (`form_id`, `question`, `qtype`, section, section_rule) VALUES (:form_id, :question, :qtype, :section, :section_rule)";
                         $stmt_detail = $conn->prepare($sql_detail);
                         $stmt_detail->bindParam(':form_id', $form_id, PDO::PARAM_INT);
                         $stmt_detail->bindParam(':question', $question);
                         $stmt_detail->bindParam(':qtype', $qtype);
+                        $stmt_detail->bindParam(':section', $section);
+                        $stmt_detail->bindParam(':section_rule', $section_rule);
 
                         if ($stmt_detail->execute()) {
                             $response = ['status' => 1, 'message' => 'Record updated successfully.'];
@@ -147,11 +153,15 @@ switch($method) {
                 if (isset($form['question']) && is_array($form['question'])) {
                     $question = json_encode($form['question']);
                     $qtype = json_encode($form['qtype']);
-                    $sql_detail = "UPDATE `form_detail` SET `question` = :question, `qtype` = :qtype WHERE `form_id` = :form_id";
+                    $section = json_encode($form['section']);
+                    $section_rule = json_encode($form['section_rule']);
+                    $sql_detail = "UPDATE `form_detail` SET `question` = :question, `qtype` = :qtype, `section` = :section, `section_rule` = :section_rule WHERE `form_id` = :form_id";
                     $stmt_detail = $conn->prepare($sql_detail);
                     $stmt_detail->bindParam(':form_id', $form_id, PDO::PARAM_INT);
                     $stmt_detail->bindParam(':question', $question);
                     $stmt_detail->bindParam(':qtype', $qtype);
+                    $stmt_detail->bindParam(':section', $section);
+                    $stmt_detail->bindParam(':section_rule', $section_rule);
 
                     if ($stmt_detail->execute()) {
                         $response = ['status' => 1, 'message' => 'Record updated successfully.'];
