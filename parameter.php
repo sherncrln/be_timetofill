@@ -41,9 +41,26 @@ switch($method) {
             $stmt->bindParam(':variable', $user['username'], PDO::PARAM_INT);
             $stmt->execute();
             $param = $stmt->fetch(PDO::FETCH_ASSOC);
+            echo json_encode($param);
+
         } else {
-            $param = "Invalid user_id";
+            if(isset($_GET['p']) && is_numeric($_GET['p'])) {
+                $sql = "SELECT name FROM user WHERE username = :p";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(':p', $_GET['p'], PDO::PARAM_INT);
+                $stmt->execute();
+                $pname = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+                if ($pname) {
+                    echo json_encode($pname);
+                } else {
+                    echo json_encode(['name' => '']);
+                }
+
+            }else{
+                $param = "Invalid user_id";
+                echo json_encode($param);
+            }
         }
-        echo json_encode($param);
         break;
-    }
+}
