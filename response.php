@@ -47,7 +47,7 @@ switch($method) {
             $stmt->execute();
             $head = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($stmt->execute()) {
-                $sql_detail = "SELECT r.response_id, r.timestamp, r.class, u.name, r.answer, f.form_id FROM response r JOIN form_detail f ON r.form_id = f.form_id JOIN user u ON r.username = u.username WHERE f.form_id = :id ;";
+                $sql_detail = "SELECT r.response_id, r.timestamp, r.class, u.name, r.answer FROM response r JOIN form_detail f ON r.form_id = f.form_id JOIN user u ON r.username = u.username WHERE f.form_id = :id ;";
                 $stmt_detail = $conn->prepare($sql_detail);
                 $stmt_detail->bindParam(':id', $_GET['form_id'], PDO::PARAM_INT);
                 $stmt_detail->execute();
@@ -56,8 +56,29 @@ switch($method) {
             } else {
                 $result = ['head' => 0, 'response' => 'Failed to process data.'];
             }
+            echo json_encode($result);
+
+        }elseif(isset($_GET['username'])){
+            $sql = "SELECT r.response_id, r.timestamp, r.answer, f.name_form FROM response r JOIN form f ON r.form_id = f.form_id WHERE r.username = :username ;";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':username', $_GET['username']);
+            $stmt->execute();
+            $response = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode($response);
+
+        }elseif(isset($_GET['response_id'])){
+            $sql = "SELECT r.response_id, r.timestamp, r.answer, f.name_form, f.description, f.form_id, fd.question, fd.qtype, f.respondent FROM response r JOIN form f ON r.form_id = f.form_id JOIN form_detail fd ON r.form_id = fd.form_id WHERE r.response_id = :response_id ;";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':response_id', $_GET['response_id'], PDO::PARAM_INT);
+            $stmt->execute();
+            $response = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            echo json_encode($response);
+        }else{
+            $response = "Data tidak valid";
+            echo json_encode($response);
         }
-        echo json_encode($result);
         break;
 }
 ?>

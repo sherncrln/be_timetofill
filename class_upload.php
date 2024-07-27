@@ -1,95 +1,122 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: *");
-header("Access-Control-Allow-Methods: *");
+require 'vendor/autoload.php'; // Composer autoload
+include 'connection.php'; // File koneksi database
 
-// Sertakan SimpleXLSX
-require_once 'SimpleXLSX.php';
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
-include 'connection_upload.php';
-$objDb = new Connection;
-$conn = $objDb->connect();
+$response = ['status' => 0, 'message' => ''];
 
-$method = $_SERVER['REQUEST_METHOD'];
-
-switch ($method) {
-    case "POST":
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_FILES['file']) && isset($_POST['mode'])) {
+        $file = $_FILES['file']['tmp_name'];
         $mode = $_POST['mode'];
-        $file = $_FILES['file'];
+        $spreadsheet = IOFactory::load($file);
+        $sheetData = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
 
-        if ($file['error'] === 0) {
-            $fileTmpPath = $file['tmp_name'];
-            $fileName = $file['name'];
-            $fileSize = $file['size'];
-            $fileType = $file['type'];
+        $connection = new Connection();
+        $conn = $connection->connect(); // Membuka koneksi ke database
 
-            $allowedFileTypes = array('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            if (in_array($fileType, $allowedFileTypes)) {
-                $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-                $newFileName = uniqid() . '.' . $fileExtension;
-                $uploadFileDir = './uploads/';
-                $destPath = $uploadFileDir . $newFileName;
+        if ($conn) {
+            // Mulai transaksi
+            $conn->beginTransaction();
+            try {
+                $skippedClasses = [];
+                $processedCount = 0;
 
-                if (move_uploaded_file($fileTmpPath, $destPath)) {
-                    // Proses file Excel menggunakan SimpleXLSX
-                    if ($xlsx = SimpleXLSX::parse($destPath)) {
-                        $data = $xlsx->rows();
+                foreach ($sheetData as $key => $row) {
+                    if ($key == 1) continue; // Lewati baris header
 
-                        try {
-                            if ($mode === 'add') {
-                                foreach ($data as $row) {
-                                    $sql = "INSERT INTO class (category, class, semester, valid_from, valid_to, variable_1, variable_2, variable_3, variable_4, variable_5, variable_6) VALUES (:category, :class, :semester, :valid_from, :valid_to, :variable_1, :variable_2, :variable_3, :variable_4, :variable_5, :variable_6)";
-                                    $stmt = $conn->prepare($sql);
-                                    $stmt->bindParam(':category', $row[1]);
-                                    $stmt->bindParam(':class', $row[0]);
-                                    $stmt->bindParam(':semester', $row[2], PDO::PARAM_INT);
-                                    $stmt->bindParam(':valid_from', $row[3]);
-                                    $stmt->bindParam(':valid_to', $row[4]);
-                                    $stmt->bindParam(':variable_1', $row[5]);
-                                    $stmt->bindParam(':variable_2', $row[6]);
-                                    $stmt->bindParam(':variable_3', $row[7]);
-                                    $stmt->bindParam(':variable_4', $row[8]);
-                                    $stmt->bindParam(':variable_5', $row[9]);
-                                    $stmt->bindParam(':variable_6', $row[10]);
-                                    $stmt->execute();
-                                }
-                            } elseif ($mode === 'edit') {
-                                foreach ($data as $row) {
-                                    $sql = "UPDATE class SET category = :category, class = :class, semester = :semester, valid_from = :valid_from, valid_to = :valid_to, variable_1 = :variable_1, variable_2 = :variable_2, variable_3 = :variable_3, variable_4 = :variable_4, variable_5 = :variable_5, variable_6 = :variable_6 WHERE class_id = :id";
-                                    $stmt = $conn->prepare($sql);
-                                    $stmt->bindParam(':id', $row[0], PDO::PARAM_INT);
-                                    $stmt->bindParam(':category', $row[1]);
-                                    $stmt->bindParam(':class', $row[2]);
-                                    $stmt->bindParam(':semester', $row[3], PDO::PARAM_INT);
-                                    $stmt->bindParam(':valid_from', $row[4]);
-                                    $stmt->bindParam(':valid_to', $row[5]);
-                                    $stmt->bindParam(':variable_1', $row[6]);
-                                    $stmt->bindParam(':variable_2', $row[7]);
-                                    $stmt->bindParam(':variable_3', $row[8]);
-                                    $stmt->bindParam(':variable_4', $row[9]);
-                                    $stmt->bindParam(':variable_5', $row[10]);
-                                    $stmt->bindParam(':variable_6', $row[11]);
-                                    $stmt->execute();
-                                }
+                    $class = $row['A'];
+                    $category = $row['B'];
+                    $semester = $row['C'];
+                    $valid_from = $row['D'];
+                    $valid_to = $row['E'];
+
+                    // Cek apakah category adalah "Mahasiswa"
+                    if ($category == "Mahasiswa") {
+                        $variable_1 = $row['F'];
+                        $variable_2 = $row['G'];
+                        $variable_3 = $row['H'];
+                        $variable_4 = $row['I'];
+                        $variable_5 = $row['J'];
+                        $variable_6 = $row['K'];
+
+                        // Cek apakah variable 1 sampai 6 adalah 'username' yang terdaftar pada tabel user dengan category 'Dosen'
+                        $variables = [$variable_1, $variable_2, $variable_3, $variable_4, $variable_5, $variable_6];
+                        $validVariables = true;
+
+                        foreach ($variables as $variable) {
+                            $stmtCheckUser = $conn->prepare("SELECT COUNT(*) FROM user WHERE username = ? AND category = 'Dosen'");
+                            $stmtCheckUser->execute([$variable]);
+                            $userExists = $stmtCheckUser->fetchColumn();
+
+                            if ($userExists == 0) {
+                                $validVariables = false;
+                                break;
                             }
-                            echo json_encode(['status' => 1, 'message' => 'File uploaded successfully.']);
-                        } catch (Exception $e) {
-                            echo json_encode(['status' => 0, 'message' => 'Database error: ' . $e->getMessage()]);
+                        }
+
+                        if (!$validVariables) {
+                            $skippedClasses[] = $class;
+                            continue;
                         }
                     } else {
-                        echo json_encode(['status' => 0, 'message' => 'Failed to parse uploaded file.']);
+                        $variable_1 = null;
+                        $variable_2 = null;
+                        $variable_3 = null;
+                        $variable_4 = null;
+                        $variable_5 = null;
+                        $variable_6 = null;
+                    }
+
+                    // Cek apakah class sudah ada
+                    $stmtCheck = $conn->prepare("SELECT COUNT(*) FROM class WHERE class = ?");
+                    $stmtCheck->execute([$class]);
+                    $classExists = $stmtCheck->fetchColumn();
+
+                    if ($mode == 'add' && $classExists > 0) {
+                        // Jika mode 'add' dan class sudah ada, tambahkan ke daftar yang dilewati
+                        $skippedClasses[] = $class;
+                        continue;
+                    }
+
+                    if ($mode == 'add') {
+                        $stmt = $conn->prepare("INSERT INTO class (class, category, semester, valid_from, valid_to, variable_1, variable_2, variable_3, variable_4, variable_5, variable_6) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$class, $category, $semester, $valid_from, $valid_to, $variable_1, $variable_2, $variable_3, $variable_4, $variable_5, $variable_6]);
+                    } else if ($mode == 'edit') {
+                        $stmt = $conn->prepare("UPDATE class SET category=?, semester=?, valid_from=?, valid_to=?, variable_1=?, variable_2=?, variable_3=?, variable_4=?, variable_5=?, variable_6=? WHERE class=?");
+                        $stmt->execute([$category, $semester, $valid_from, $valid_to, $variable_1, $variable_2, $variable_3, $variable_4, $variable_5, $variable_6, $class]);
+                    }
+
+                    $processedCount++;
+                }
+
+                $conn->commit(); // Commit transaksi
+
+                if ($processedCount > 0) {
+                    $response['status'] = 1;
+                    $response['message'] = 'File uploaded and processed successfully';
+                    if (count($skippedClasses) > 0) {
+                        $response['message'] .= '. Some classes were skipped because they already exist or variable validation failed: ' . implode(', ', $skippedClasses);
                     }
                 } else {
-                    echo json_encode(['status' => 0, 'message' => 'Failed to move uploaded file.']);
+                    $response['message'] = 'No classes were processed. All provided classes already exist or variable validation failed.';
                 }
-            } else {
-                echo json_encode(['status' => 0, 'message' => 'Invalid file type.']);
+            } catch (Exception $e) {
+                $conn->rollBack(); // Rollback transaksi jika ada error
+                $response['message'] = 'Failed to upload and process file: ' . $e->getMessage();
             }
+
+            $connection->closecon($conn); // Menutup koneksi ke database
         } else {
-            echo json_encode(['status' => 0, 'message' => 'File upload error.']);
+            $response['message'] = 'Failed to connect to the database';
         }
-        break;
+    } else {
+        $response['message'] = 'Invalid request';
+    }
+} else {
+    $response['message'] = 'Invalid request method';
 }
+
+echo json_encode($response);
 ?>

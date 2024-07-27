@@ -16,4 +16,8 @@ class Connection {
             error_log("Database Error: " . $e->getMessage());
         }
     }
+
+    public function closecon(&$conn) {
+        $conn = null;
+    }
 }
