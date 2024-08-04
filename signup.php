@@ -18,7 +18,7 @@
             $password = $user['password'];
             $username = $user['username'];
 
-            $sql_user = "SELECT * FROM user WHERE username='$username';";
+            $sql_user = "SELECT * FROM user WHERE username='$username' AND password='';";
             $res = mysqli_query($conn, $sql_user);
             
             if(mysqli_num_rows($res) != 0){
@@ -31,7 +31,7 @@
                     $response = ['status' => 0, 'message' => 'Failed to create account.'];            
                 }                
             }else{
-                $response = ['status' => 0, 'message' => 'User not found!'];
+                $response = ['status' => 0, 'message' => 'User not found or has been created!'];
             }
 
         }
